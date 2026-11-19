@@ -1,0 +1,45 @@
+name: MU image
+
+# Builds the OpenMU all-in-one image (src/Startup/Dockerfile) of the `mu` branch and publishes it to
+# ghcr.io/jonatks/openmu with the tags `mu` and `mu-<short sha>`. The VM builds its own image on top of it
+# (mu-web-client ops/fase0), so this one carries only OpenMU itself.
+
+on:
+  push:
+    branches:
+      - mu
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags
+        id: tags
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: src
+          file: src/Startup/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/jonatks/openmu:mu
+            ghcr.io/jonatks/openmu:mu-${{ steps.tags.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
